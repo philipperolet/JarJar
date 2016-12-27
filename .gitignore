@@ -56,3 +56,7 @@ Thumbs.db
 *.bkp
 *.bk
 #*
+
+# Other #
+#########
+node_modules/

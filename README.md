@@ -1,6 +1,8 @@
 # JarJar
+A bot to do my groceries.
 
 ## Setup
+After the git clone, in the repo dir :
 `pip -r requirements.txt
 npm install phantomjs-prebuilt
 python fais_mes_courses.py

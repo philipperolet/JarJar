@@ -1,5 +1,11 @@
 # JarJar
 
+## Setup
+`pip -r requirements.txt
+npm install phantomjs-prebuilt
+python fais_mes_courses.py
+`
+
 ## Ongoing todo
 1. A script
 a. that says hello world

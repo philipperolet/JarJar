@@ -5,6 +5,7 @@ A bot to do my groceries.
 After the git clone, in the repo dir :
 `pip -r requirements.txt
 npm install phantomjs-prebuilt
+ln -s {PHANTOMJS BINARY} ~/bin/phantomjs (adds phantomjs to your path) 
 python fais_mes_courses.py
 `
 
@@ -15,12 +16,15 @@ b. that reads the monoprix page title
 c. that clicks on MonCompte
 d. that logs in
 e. that displays an info about amount of last order
-* f. with almost clean code, logging when needed
+f. that waits correclty before logging
+g. that's headless
+*h. that actually fills your basket & co
 
-- that's headless
-- with timings if stuff takes too long
-- that waits correclty before logging
+- that logs what's going on
+- that is dockerized
+- that is apized
+- that is chatbotted
 
 
-- last visited unseen buffer on emacs
-- that checks if you're logged in
+
+

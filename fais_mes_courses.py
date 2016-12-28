@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
+import logging
 
 from selenium import webdriver
 
@@ -18,6 +19,7 @@ class MonopBot(object):
     logged visitor of monoprix.fr
     """
     def __init__(self, login, password, run_headless=True):
+        logging.info("Starting MonopBot")
         # Initialize browser
         if run_headless:
             self.driver = webdriver.Remote(REMOTE_HEADLESS_BROWSER_ADRESS,
@@ -30,7 +32,9 @@ class MonopBot(object):
 
         # Go to monoprix and login
         self.driver.get("http://www.monoprix.fr")
+        logging.info("Reached monoprix.fr")
         self.login(login, password)
+        
 
     def login(self, login, password):
         # Gets to login form
@@ -53,7 +57,8 @@ class MonopBot(object):
         # Checks element below is found to confirm logging in
         self.driver.find_element_by_css_selector(
             'li.dropdown.connect ul.dropdown-menu.compte'
-        )  
+        )
+        logging.info("Logged in.")
 
     def get_last_order_amount(self):
         self.driver.get('https://www.monoprix.fr/jsp/account/accountOrders.jsp')
@@ -72,7 +77,7 @@ class MonopBot(object):
         '''
         raise NotImplementedError
 
-
+logging.getLogger().setLevel(logging.INFO)
 bot = MonopBot('philipperolet@gmail.com', 'stuff6472!')
 print u'Montant dernière commande : {}'.format(unicode(bot.get_last_order_amount()))
 """

@@ -109,18 +109,28 @@ class MonopBot(object):
             return False
 
         # Get the "date coordinates" according to monoprix table
+        # two "weird slots" of monoprix, 7h15 and 12h30, are skipped
+        # thus the hour adjustment
         delta = date - datetime.now().replace(hour=0)
-        coords = "h{} j{}".format(date.hour-7, delta.day)
+        hour = date.hour-7
+        if hour > 0:
+            hour += 1
+        if hour > 6:
+            hour += 1
+        coords = "h{} j{}".format(hour, delta.days)
 
         # availability is given by the css class of the table cell
-        table_cell = driver.find_element_by_css_selector(table td[headers=''])
-        return True
+        table_cell = self.driver.find_element_by_css_selector(
+            'table td[headers="{}"]'.format(coords)
+        )
+        return "libre" in table_cell.get_attribute("class")
 
 if __name__ == '__main__':
     headless_driver = webdriver.Remote("http://127.0.0.1:9515",
                                        webdriver.DesiredCapabilities.CHROME)
     logging.getLogger().setLevel(logging.INFO)
-    bot = MonopBot(headless_driver)
+    # bot = MonopBot(headless_driver)
+    bot = MonopBot(webdriver.Chrome())
     print u'Montant dernière commande : {}'.format(unicode(bot.get_last_order_amount()))
     """
     bot.empty_basket()

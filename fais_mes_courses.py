@@ -79,39 +79,17 @@ class MonopBot(object):
         '''
         raise NotImplementedError
 
-    def set_delivery_date(self, date):
-        if not(self.available_delivery_date(date)):
+    def _get_slot_cell(self, date):
+        '''Finds the "date coordinates" according to monoprix table and
+        returns the table cell
+        '''
+        # Date should be between day n+1 at noon and day n+5 included, and between 7h and 21h
+        delta = date - datetime.now().replace(hour=0, minute=0, second=0)
+        if (delta.days < 0 or delta.days > 5 or
+                delta.seconds < 7 * 3600 or delta.seconds >= 22 * 3600):
             raise InvalidDeliveryDate("Date not available for delivery")
-        self.select_date(date)
 
-    @staticmethod
-    def valid_delivery_date(date):
-        """
-        Date should be:
-        - between day n+1 at noon and day n+5 included
-        - between 7 and 21
-        """
-        today = datetime.now().replace(hour=7, minute=0, second=0)
-        if (date.hour < 7) or (date.hour > 21):
-            return False
-        if (date - today) > timedelta(days=5):
-            return False
-        if (date - today) < timedelta(days=1, hours=5):
-            return False
-        return True
-
-    def available_delivery_date(self, date):
-        """
-        Checks if monoprix is able to deliver at the given date
-        """
-        # Only certain dates can be considered
-        if not(self.valid_delivery_date(date)):
-            return False
-
-        # Get the "date coordinates" according to monoprix table
-        # two "weird slots" of monoprix, 7h15 and 12h30, are skipped
-        # thus the hour adjustment
-        delta = date - datetime.now().replace(hour=0)
+        # two "weird slots" of monoprix, 7h15 and 12h30, are skipped thus the hour adjustment
         hour = date.hour-7
         if hour > 0:
             hour += 1
@@ -119,11 +97,34 @@ class MonopBot(object):
             hour += 1
         coords = "h{} j{}".format(hour, delta.days)
 
-        # availability is given by the css class of the table cell
+        # finds the cell and returns it if the slot is available
         table_cell = self.driver.find_element_by_css_selector(
             'table td[headers="{}"]'.format(coords)
-        )
-        return "libre" in table_cell.get_attribute("class")
+        )  # availability is given by the css class of the table cell with the date coordinates
+        if not("libre" in table_cell.get_attribute("class")):
+            raise InvalidDeliveryDate("Date not available for delivery")
+        return table_cell
+
+    def pick_delivery_slot(self, date):
+        '''Sets the date and time for groceries delivery.
+        Raises InvalidDeliveryDate if the chosen datetime does not work
+        '''
+        # Goes to delivery slot selection form
+        pass  # TODO
+
+        slot_cell = self._get_slot_cell(date)
+
+        # validates the slot. In some cases a confirmation is asked because some items
+        # may not be available. When it happens, the bot confirms
+        slot_cell.click()
+        self.driver.find_element_by_css_selector('.popin-livraison .validate button').click()
+        try:
+            self.driver.find_element_by_css_selector(
+                '#information-change-slot-different-store div > a+a.button'
+            ).click()  # This only appears when a confirmation is needed
+        except TimeoutException:
+            pass  # we just go on if no confirmation is needed
+
 
 if __name__ == '__main__':
     headless_driver = webdriver.Remote("http://127.0.0.1:9515",

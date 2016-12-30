@@ -8,10 +8,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 
-LOAD_WT = 10  # Waiting time for elements to load / show (secs)
+from datetime import datetime, timedelta
 
-headless_driver = webdriver.Remote("http://127.0.0.1:9515",
-                               webdriver.DesiredCapabilities.CHROME)
+LOAD_WT = 10  # Waiting time for elements to load / show (secs)
 
 
 class InvalidDeliveryDate(Exception):
@@ -25,16 +24,19 @@ class MonopBot(object):
     - driver : selenium webdriver to use for browser emulation
     (chrome, headless predefined above)
     """
-    def __init__(self, login, password, driver):
+    login = 'philipperolet@gmail.com'
+    password = 'stuff6472!'
+    
+    def __init__(self, driver):
         logging.info("Starting MonopBot")
         self.driver = driver
         # to avoid elements not found because not yet loaded, wait for some time before timing out
         self.driver.implicitly_wait(LOAD_WT)
 
-        # Go to monoprix and login
+        # Go to monoprix
         self.driver.get("http://www.monoprix.fr")
         logging.info("Reached monoprix.fr")
-        self.login(login, password)
+        self.login(self.login, self.password)
 
     def login(self, login, password):
         # Gets to login form
@@ -78,16 +80,50 @@ class MonopBot(object):
         raise NotImplementedError
 
     def set_delivery_date(self, date):
-        if (not(self._valid_delivery_date()) or not(self._delivery_date_available())):
+        if not(self.available_delivery_date(date)):
             raise InvalidDeliveryDate("Date not available for delivery")
         self.select_date(date)
 
-logging.getLogger().setLevel(logging.INFO)
-bot = MonopBot('philipperolet@gmail.com', 'stuff6472!', headless_driver)
-print u'Montant dernière commande : {}'.format(unicode(bot.get_last_order_amount()))
+    @staticmethod
+    def valid_delivery_date(date):
+        """
+        Date should be:
+        - between day n+1 at noon and day n+5 included
+        - between 7 and 21
+        """
+        today = datetime.now().replace(hour=7, minute=0, second=0)
+        if (date.hour < 7) or (date.hour > 21):
+            return False
+        if (date - today) > timedelta(days=5):
+            return False
+        if (date - today) < timedelta(days=1, hours=5):
+            return False
+        return True
 
-"""
-bot.empty_basket()
-[bot.add_full_order_to_basket(i+1) for i in range(4)]
-driver.quit()
-"""
+    def available_delivery_date(self, date):
+        """
+        Checks if monoprix is able to deliver at the given date
+        """
+        # Only certain dates can be considered
+        if not(self.valid_delivery_date(date)):
+            return False
+
+        # Get the "date coordinates" according to monoprix table
+        delta = date - datetime.now().replace(hour=0)
+        coords = "h{} j{}".format(date.hour-7, delta.day)
+
+        # availability is given by the css class of the table cell
+        table_cell = driver.find_element_by_css_selector(table td[headers=''])
+        return True
+
+if __name__ == '__main__':
+    headless_driver = webdriver.Remote("http://127.0.0.1:9515",
+                                       webdriver.DesiredCapabilities.CHROME)
+    logging.getLogger().setLevel(logging.INFO)
+    bot = MonopBot(headless_driver)
+    print u'Montant dernière commande : {}'.format(unicode(bot.get_last_order_amount()))
+    """
+    bot.empty_basket()
+    [bot.add_full_order_to_basket(i+1) for i in range(4)]
+    driver.quit()
+    """

@@ -10,23 +10,24 @@ from selenium.common.exceptions import TimeoutException
 
 LOAD_WT = 10  # Waiting time for elements to load / show (secs)
 
-REMOTE_HEADLESS_BROWSER_ADRESS = "http://127.0.0.1:9515"
+headless_driver = webdriver.Remote("http://127.0.0.1:9515",
+                               webdriver.DesiredCapabilities.CHROME)
+
+
+class InvalidDeliveryDate(Exception):
+    pass
 
 
 class MonopBot(object):
     """
     Bot class that can perform various actions as a
     logged visitor of monoprix.fr
+    - driver : selenium webdriver to use for browser emulation
+    (chrome, headless predefined above)
     """
-    def __init__(self, login, password, run_headless=True):
+    def __init__(self, login, password, driver):
         logging.info("Starting MonopBot")
-        # Initialize browser
-        if run_headless:
-            self.driver = webdriver.Remote(REMOTE_HEADLESS_BROWSER_ADRESS,
-                                           webdriver.DesiredCapabilities.CHROME)
-        else:
-            self.driver = webdriver.Chrome()
-
+        self.driver = driver
         # to avoid elements not found because not yet loaded, wait for some time before timing out
         self.driver.implicitly_wait(LOAD_WT)
 
@@ -34,7 +35,6 @@ class MonopBot(object):
         self.driver.get("http://www.monoprix.fr")
         logging.info("Reached monoprix.fr")
         self.login(login, password)
-        
 
     def login(self, login, password):
         # Gets to login form
@@ -77,9 +77,15 @@ class MonopBot(object):
         '''
         raise NotImplementedError
 
+    def set_delivery_date(self, date):
+        if (not(self._valid_delivery_date()) or not(self._delivery_date_available())):
+            raise InvalidDeliveryDate("Date not available for delivery")
+        self.select_date(date)
+
 logging.getLogger().setLevel(logging.INFO)
-bot = MonopBot('philipperolet@gmail.com', 'stuff6472!')
+bot = MonopBot('philipperolet@gmail.com', 'stuff6472!', headless_driver)
 print u'Montant dernière commande : {}'.format(unicode(bot.get_last_order_amount()))
+
 """
 bot.empty_basket()
 [bot.add_full_order_to_basket(i+1) for i in range(4)]

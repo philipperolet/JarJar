@@ -11,7 +11,7 @@ class MonopBotTest(TestCase):
 
     @patch('fais_mes_courses.WebDriverWait')
     def setUp(self, mockWDW):
-        self.bot = MonopBot(Mock())
+        self.bot = MonopBot(Mock(), 1)
 
     def _setup_picking_slot_mocks(self):
         valid_mock = Mock()
@@ -32,32 +32,33 @@ class MonopBotTest(TestCase):
 
         self.bot.driver.find_element_by_css_selector = Mock(side_effect=finds_element_css)
 
-    def test_picking_delivery_slots(self):
+    @patch('fais_mes_courses.WebDriverWait')
+    def test_picking_delivery_slots(self, mockWDW):
         self._setup_picking_slot_mocks()
 
         # date should be after day n+1 at noon
         with self.assertRaises(InvalidDeliveryDate):
-            self.bot.pick_delivery_slot((datetime.now() + timedelta(1)).replace(hour=9))
+            self.bot.set_delivery_time((datetime.now() + timedelta(1)).replace(hour=9))
 
         # date should be before "in 6 days"
         with self.assertRaises(InvalidDeliveryDate):
-            self.bot.pick_delivery_slot(datetime.now() + timedelta(days=6))
+            self.bot.set_delivery_time(datetime.now() + timedelta(days=6))
 
         # date should be between 7 and 21
         with self.assertRaises(InvalidDeliveryDate):
-            self.bot.pick_delivery_slot((datetime.now() + timedelta(days=2)).replace(hour=6))
+            self.bot.set_delivery_time((datetime.now() + timedelta(days=2)).replace(hour=6))
         with self.assertRaises(InvalidDeliveryDate):
-            self.bot.pick_delivery_slot((datetime.now() + timedelta(days=2)).replace(hour=22))
+            self.bot.set_delivery_time((datetime.now() + timedelta(days=2)).replace(hour=22))
 
         # A few available and unavailable dates with special attention to the "12h30"
         # slot of monoprix messing things up
-        self.bot.pick_delivery_slot(
+        self.bot.set_delivery_time(
             (datetime.now() + timedelta(days=2)).replace(hour=9))
         with self.assertRaises(InvalidDeliveryDate):
-            self.bot.pick_delivery_slot(
+            self.bot.set_delivery_time(
                 (datetime.now() + timedelta(days=3)).replace(hour=11))
-        self.bot.pick_delivery_slot(
+        self.bot.set_delivery_time(
             (datetime.now() + timedelta(days=3)).replace(hour=12))
         with self.assertRaises(InvalidDeliveryDate):
-            self.bot.pick_delivery_slot(
+            self.bot.set_delivery_time(
                 (datetime.now() + timedelta(days=3)).replace(hour=13))

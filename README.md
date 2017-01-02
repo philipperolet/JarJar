@@ -20,12 +20,11 @@ e. that displays an info about amount of last order
 f. that waits correclty before logging
 g. that's headless
 h. that logs what's going on
-*i. that sets up the delivery time
+i. that sets up the delivery time
 --> between day n+1 at noon and day n+5 included
 --> between 7 and 21 with round hour
 --> at an available date
-
-. that actually fills your basket & co
+*j. that actually fills your basket & co
 
 - that is dockerized
 - that is apized

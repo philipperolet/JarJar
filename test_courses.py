@@ -2,6 +2,7 @@
 # coding: utf-8
 
 from fais_mes_courses import MonopBot, InvalidDeliveryDate
+from selenium.common.exceptions import NoSuchElementException
 from unittest import TestCase
 from datetime import datetime, timedelta
 from mock import Mock, patch
@@ -62,3 +63,31 @@ class MonopBotTest(TestCase):
         with self.assertRaises(InvalidDeliveryDate):
             self.bot.set_delivery_time(
                 (datetime.now() + timedelta(days=3)).replace(hour=13))
+
+    @patch('fais_mes_courses.logging')
+    def test_emptying_basket_already_empty(self, log_mock):
+        self.bot.driver.find_element_by_css_selector.return_value.text = "0"
+        self.bot.empty_basket()
+        log_mock.info.assert_called_once_with("Emptying basket: already empty.")
+
+    @patch('fais_mes_courses.logging')
+    def test_emptying_basket_5_elements(self, log_mock):
+        # Prepare mock for 5 calls of emptying basket before exception
+        self.counter = 0
+
+        def find_by_css_returns(selector):
+            self.counter += 1
+            basket_pastille = Mock()
+            basket_pastille.text = "5"
+            if self.counter == 1:
+                return basket_pastille
+            if self.counter <= 6:
+                return Mock()
+            raise NoSuchElementException()
+
+        self.bot.driver.find_element_by_css_selector.side_effect = find_by_css_returns
+
+        # expects correct calls to find_element_by_css_selector : 4 initials + 6 for basket removal
+        self.bot.empty_basket()
+        self.assertEqual(10, len(self.bot.driver.find_element_by_css_selector.call_args_list))
+        log_mock.info.assert_called_once_with("Emptied basket: 5 elements")

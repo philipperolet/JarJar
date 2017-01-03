@@ -11,8 +11,9 @@ from mock import Mock, patch
 class MonopBotTest(TestCase):
 
     @patch('fais_mes_courses.WebDriverWait')
+    @patch.object(MonopBot,'get_basket_items', Mock(return_value={'1':"beurre", '2':"lait"}))
     def setUp(self, mockWDW):
-        self.bot = MonopBot(Mock(), 1)
+        self.bot = MonopBot(Mock(), 'user', 'pass', 1)
 
     def _setup_picking_slot_mocks(self):
         valid_mock = Mock()
@@ -64,30 +65,25 @@ class MonopBotTest(TestCase):
             self.bot.set_delivery_time(
                 (datetime.now() + timedelta(days=3)).replace(hour=13))
 
-    @patch('fais_mes_courses.logging')
-    def test_emptying_basket_already_empty(self, log_mock):
-        self.bot.driver.find_element_by_css_selector.return_value.text = "0"
+    def test_emptying_basket(self):
         self.bot.empty_basket()
-        log_mock.info.assert_called_once_with("Emptying basket: already empty.")
+        self.assertTrue('button[id="1"]' in self.bot.driver.find_element_by_css_selector.call_args_list[-2][0][0])
+        self.assertTrue('button[id="2"]' in self.bot.driver.find_element_by_css_selector.call_args_list[-1][0][0])
+        self.assertEqual(0, len(self.bot.basket))
 
-    @patch('fais_mes_courses.logging')
-    def test_emptying_basket_5_elements(self, log_mock):
-        # Prepare mock for 5 calls of emptying basket before exception
-        self.counter = 0
+    def test_add_order_to_basket(self):
+        # Get order items, available or not
+        # order_items = self.bot._get_order_items(1)
+        # self.bot.add_order_to_basket(1)
+        return
+        # Check that available items that were not in the basket have been added
+        # and unavailable ones have been collected
+        for item in order_items:
+            if item.is_available:
+                self.assertTrue(item in self.bot.basket)
+            else:
+                self.assertTrue(item in self.bot.unavailable_items)
 
-        def find_by_css_returns(selector):
-            self.counter += 1
-            basket_pastille = Mock()
-            basket_pastille.text = "5"
-            if self.counter == 1:
-                return basket_pastille
-            if self.counter <= 6:
-                return Mock()
-            raise NoSuchElementException()
 
-        self.bot.driver.find_element_by_css_selector.side_effect = find_by_css_returns
 
-        # expects correct calls to find_element_by_css_selector : 4 initials + 6 for basket removal
-        self.bot.empty_basket()
-        self.assertEqual(10, len(self.bot.driver.find_element_by_css_selector.call_args_list))
-        log_mock.info.assert_called_once_with("Emptied basket: 5 elements")
+        

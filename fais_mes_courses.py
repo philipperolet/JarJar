@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 import logging
-import time
 
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -11,7 +10,7 @@ from selenium.common.exceptions import (TimeoutException,
                                         ElementNotVisibleException,
                                         StaleElementReferenceException)
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
 class InvalidDeliveryDate(Exception):
@@ -25,10 +24,12 @@ class MonopBot(object):
     - driver : selenium webdriver to use for browser emulation
     (chrome, headless predefined above)
     """
-    username = 'philipperolet@gmail.com'
-    password = 'stuff6472!'
 
-    def __init__(self, driver, page_load_wait_time=6):
+    def __init__(self,
+                 driver,
+                 username='philipperolet@gmail.com',
+                 password='stuff6472!',
+                 page_load_wait_time=6):
         logging.info("Starting MonopBot")
         self.driver = driver
         # to avoid elements not found because not yet loaded, wait for some time before timing out
@@ -38,7 +39,8 @@ class MonopBot(object):
         # Sign in on monoprix.fr
         self.driver.get("http://www.monoprix.fr")
         logging.info("Reached monoprix.fr")
-        self.signin(self.username, self.password)
+        self.signin(username, password)
+        self.basket = self.get_basket_items()
 
     def signin(self, username, password):
         # Gets to signin form
@@ -70,6 +72,30 @@ class MonopBot(object):
             pass
 
         logging.info("Logged in.")
+
+    def get_basket_items(self):
+        '''return item dict, with keys = basket item id, and
+        values = product brand and description string
+        '''
+        self.driver.get("https://www.monoprix.fr/apercu-panier")
+        basket_items = dict()
+
+        # Get the basket items
+        try:
+            items = self.driver.find_elements_by_css_selector(".cadre-detail-panier div.dyn-supp")
+        except NoSuchElementException:
+            items = []
+
+        # Store them as strings in a set
+        for item in items:
+            item_id = item.find_element_by_css_selector("button.close").get_attribute('id')
+            basket_items[item_id] = u"{} - {}".format(
+                item.find_element_by_css_selector("span.libelle-produit").text,
+                item.find_element_by_css_selector("span.description").text
+            )
+
+        logging.info("{} elements in basket.".format(len(basket_items)))
+        return basket_items
 
     def get_last_order_amount(self):
         self.driver.get('https://www.monoprix.fr/jsp/account/accountOrders.jsp')
@@ -125,7 +151,7 @@ class MonopBot(object):
             )  # This only appears when a confirmation is needed
             WebDriverWait(self.driver, self.page_load_wait_time).until(
                 EC.visibility_of(confirmation_button))
-        except TimeoutException:
+        except (TimeoutException, StaleElementReferenceException):
             pass  # we just go on if no confirmation is needed
         self.delivery_time = delivery_time
         logging.info("Delivery set for {:%b %d} at {:%H}h.".format(delivery_time, delivery_time))
@@ -152,37 +178,25 @@ class MonopBot(object):
 
     def empty_basket(self):
         # Checks if basket is not already empty
-        basket_size = self.driver.find_element_by_css_selector(".monpanier .pastille-nb-art").text
-        if basket_size == "0":
+        if len(self.basket) == 0:
             logging.info("Emptying basket: already empty.")
             return
 
         # Goes to basket view and remove items one by one
         self.driver.get("https://www.monoprix.fr/apercu-panier")
-        try:
-            while True:
-                time.sleep(0.3)  # waits to avoid stalereferences due to JS refresh
-                del_first_item_button = self.driver.find_element_by_css_selector(
-                    ".cadre-detail-panier div.dyn-supp button")
-                self.driver.execute_script(del_first_item_button.get_attribute("onclick"))
-        except NoSuchElementException:
-            logging.info("Emptied basket: {} elements".format(basket_size))
-        except StaleElementReferenceException:
-            # In case there is still a staleness (not waited enough), retries
-            self.empty_basket()
-
+        while self.basket:
+            item_id = self.basket.popitem()[0]
+            del_script = self.driver.find_element_by_css_selector(
+                    ".cadre-detail-panier div.dyn-supp button[id=\"{}\"]".format(item_id)
+            ).get_attribute("onclick")
+            self.driver.execute_script(del_script)
+        logging.info("Emptied basket.")
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
-    bot = MonopBot(webdriver.Chrome())
-    bot.set_delivery_time(datetime.now().replace(hour=9) + timedelta(days=2))
-    bot.empty_basket()
-    missing_elements = [bot.add_previous_order_to_basket(i) for i in range(1, 3)]
-    """
-    bot.empty_basket()
-    [bot.add_full_order_to_basket(i+1) for i in range(4)]
-    driver.quit()
-    """
-#    bot = MonopBot(webdriver.Remote("http://127.0.0.1:9515",
-#                                    webdriver.DesiredCapabilities.CHROME)
-#    print u'Montant dernière commande : {}'.format(unicode(bot.get_last_order_amount()))
+    # bot = MonopBot(webdriver.Chrome())
+    bot = MonopBot(webdriver.Remote("http://127.0.0.1:9515", webdriver.DesiredCapabilities.CHROME))
+    print bot.basket
+    # bot.set_delivery_time(datetime.now().replace(hour=9) + timedelta(days=2))
+    # bot.empty_basket()
+    # missing_elements = [bot.add_previous_order_to_basket(i) for i in range(1, 2)]

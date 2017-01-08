@@ -2,6 +2,8 @@
 # coding: utf-8
 import logging
 
+from collections import namedtuple
+
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -11,6 +13,8 @@ from selenium.common.exceptions import (TimeoutException,
                                         StaleElementReferenceException)
 
 from datetime import datetime
+
+Item = namedtuple('Item', ['description', 'available', 'basket_id'])
 
 
 class InvalidDeliveryDate(Exception):
@@ -75,59 +79,41 @@ class MonopBot(object):
 
     def get_basket_items(self):
         '''return item dict, with keys = basket item id, and
-        values = product brand and description string
+        values = Item namedtuple
         '''
         self.driver.get("https://www.monoprix.fr/apercu-panier")
         basket_items = dict()
 
-        # Get the basket items
         try:
-            items = self.driver.find_elements_by_css_selector(".cadre-detail-panier div.dyn-supp")
+            items = self._get_page_items()
         except NoSuchElementException:
-            items = []
+            pass  # just means basket is empty
 
-        # Store them as strings in a set
+        # stores items in bot.basket by indexing them with their basket_id
         for item in items:
-            item_id = item.find_element_by_css_selector("button.close").get_attribute('id')
-            basket_items[item_id] = u"{} - {}".format(
-                item.find_element_by_css_selector("span.libelle-produit").text,
-                item.find_element_by_css_selector("span.description").text
-            )
+            self.basket[item.basket_id] = item
 
         logging.info("{} elements in basket.".format(len(basket_items)))
         return basket_items
 
-    def get_last_order_amount(self):
-        self.driver.get('https://www.monoprix.fr/jsp/account/accountOrders.jsp')
-        return self.driver.find_element_by_css_selector(
-            "table.commandes-related tbody tr:first-child td:first-child+td+td+td"
-        ).text
+    @staticmethod
+    def _get_product_string(product_html_cell):
+            return u"{} - {}".format(
+                product_html_cell.find_element_by_css_selector("span.libelle-produit").text,
+                product_html_cell.find_element_by_css_selector("span.description").text
+            )
 
-    def _get_slot_cell(self, delivery_time):
-        '''Finds the "delivery_time coordinates" according to monoprix table and
-        returns the table cell
-        '''
-        # Date should be between day n+1 at noon and day n+5 included, and between 7h and 21h
-        delta = delivery_time - datetime.now().replace(hour=0, minute=0, second=0)
-        if (delta.days < 0 or delta.days > 5 or
-                delta.seconds < 7 * 3600 or delta.seconds >= 22 * 3600):
-            raise InvalidDeliveryDate("Date not available for delivery")
+    def _get_page_items(self):
+        items = []
+        raw_items = self.driver.find_elements_by_css_selector(".cadre-detail-panier div.dyn-supp")
 
-        # two "weird slots" of monoprix, 7h15 and 12h30, are skipped thus the hour adjustment
-        hour = delivery_time.hour-7
-        if hour > 0:
-            hour += 1
-        if hour > 6:
-            hour += 1
-        coords = "h{} j{}".format(hour, delta.days)
-
-        # finds the cell and returns it if the slot is available
-        table_cell = self.driver.find_element_by_css_selector(
-            'table td[headers="{}"]'.format(coords)
-        )  # availability given by the css class of the cell with the delivery_time coordinates
-        if not("libre" in table_cell.get_attribute("class")):
-            raise InvalidDeliveryDate("Date not available for delivery")
-        return table_cell
+        for item in raw_items:
+            try:
+                item_id = item.find_element_by_css_selector("button.close").get_attribute('id')
+            except NoSuchElementException:
+                item_id = ''
+            items.add(Item(self._get_product_string(item), True, item_id))
+        return items
 
     def set_delivery_time(self, delivery_time):
         '''Sets the delivery_time and time for groceries delivery.
@@ -156,11 +142,35 @@ class MonopBot(object):
         self.delivery_time = delivery_time
         logging.info("Delivery set for {:%b %d} at {:%H}h.".format(delivery_time, delivery_time))
 
-    def add_previous_order_to_basket(self, order_nb):
+    def _get_slot_cell(self, delivery_time):
+        '''Finds the "delivery_time coordinates" according to monoprix table and
+        returns the table cell
         '''
-        adds all items of order #order_nb to basket
-        except those unavailable
-        returns a list of unavaible items (string)
+        # Date should be between day n+1 at noon and day n+5 included, and between 7h and 21h
+        delta = delivery_time - datetime.now().replace(hour=0, minute=0, second=0)
+        if (delta.days < 0 or delta.days > 5 or
+                delta.seconds < 7 * 3600 or delta.seconds >= 22 * 3600):
+            raise InvalidDeliveryDate("Date not available for delivery")
+
+        # two "weird slots" of monoprix, 7h15 and 12h30, are skipped thus the hour adjustment
+        hour = delivery_time.hour-7
+        if hour > 0:
+            hour += 1
+        if hour > 6:
+            hour += 1
+        coords = "h{} j{}".format(hour, delta.days)
+
+        # finds the cell and returns it if the slot is available
+        table_cell = self.driver.find_element_by_css_selector(
+            'table td[headers="{}"]'.format(coords)
+        )  # availability given by the css class of the cell with the delivery_time coordinates
+        if not("libre" in table_cell.get_attribute("class")):
+            raise InvalidDeliveryDate("Date not available for delivery")
+        return table_cell
+
+    def add_previous_order_to_basket(self, order_nb):
+        '''adds all items of order #order_nb to basket
+        except those unavailable which are stored in unavailable_items 
         order_nb is such that 1 is the most recent order
         '''
         self.driver.get("https://www.monoprix.fr/jsp/account/accountOrders.jsp")
@@ -171,10 +181,17 @@ class MonopBot(object):
             "div.panier button.ajout-list-panier"
         ).click()
         logging.info("Added last order num. {} to basket".format(order_nb))
-        return self._get_missing_elements()
 
-    def _get_missing_elements(self):
-        return ""
+    def get_previous_order_items(self, order_nb):
+        '''gets items of order #order_nb
+        order_nb is such that 1 is the most recent order
+        returns a list of Item namedtuples
+        '''
+        self.driver.get("https://www.monoprix.fr/jsp/account/accountOrders.jsp")
+        self.driver.find_element_by_css_selector(
+            "table.commandes-related tbody tr:nth-child({}) td:last-child".format(order_nb)
+        ).click()
+        return self._get_page_items()
 
     def empty_basket(self):
         # Checks if basket is not already empty
@@ -194,9 +211,11 @@ class MonopBot(object):
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
-    # bot = MonopBot(webdriver.Chrome())
-    bot = MonopBot(webdriver.Remote("http://127.0.0.1:9515", webdriver.DesiredCapabilities.CHROME))
+    bot = MonopBot(webdriver.Chrome())
+    # bot = MonopBot(webdriver.Remote("http://127.0.0.1:9515", webdriver.DesiredCapabilities.CHROME))
     print bot.basket
+    bot.add_previous_order_to_basket(1)
+    bot.empty_basket()
     # bot.set_delivery_time(datetime.now().replace(hour=9) + timedelta(days=2))
     # bot.empty_basket()
     # missing_elements = [bot.add_previous_order_to_basket(i) for i in range(1, 2)]

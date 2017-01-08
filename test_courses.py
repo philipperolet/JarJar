@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from fais_mes_courses import MonopBot, InvalidDeliveryDate
-from selenium.common.exceptions import NoSuchElementException
+from fais_mes_courses import MonopBot, InvalidDeliveryDate, Item
+
 from unittest import TestCase
 from datetime import datetime, timedelta
 from mock import Mock, patch
@@ -71,18 +71,20 @@ class MonopBotTest(TestCase):
         self.assertTrue('button[id="2"]' in self.bot.driver.find_element_by_css_selector.call_args_list[-1][0][0])
         self.assertEqual(0, len(self.bot.basket))
 
-    def test_add_order_to_basket(self):
-        # Get order items, available or not
-        # order_items = self.bot._get_order_items(1)
-        # self.bot.add_order_to_basket(1)
-        return
+    @patch.object(MonopBot, 'get_previous_order_items')
+    def test_add_order_to_basket(self, mock_order):
+        mock_order.return_value = [Item('Heudeubert - Biscottes', True, '23'),
+                                   Item('Printemps - Carottes', False, '-1'),
+                                   Item('Danone - Yaourt', True, '32')]
+        order_items = self.bot.get_previous_order_items(1)
+        self.bot.add_previous_order_to_basket(1)
         # Check that available items that were not in the basket have been added
         # and unavailable ones have been collected
         for item in order_items:
-            if item.is_available:
-                self.assertTrue(item in self.bot.basket)
+            if item.available:
+                self.assertTrue(item.description in self.bot.basket.values())
             else:
-                self.assertTrue(item in self.bot.unavailable_items)
+                self.assertTrue(item.description in self.bot.unavailable_items)
 
 
 

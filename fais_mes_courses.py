@@ -32,6 +32,8 @@ class MonopBot(object):
     def __init__(self,
                  driver,
                  username='philipperolet@gmail.com',
+                 # Single purpose password (never reused), no sensitive data on monoprix account
+                 # Therefore no secrecy machinery needed
                  password='stuff6472!',
                  page_load_wait_time=6):
         logging.info("Starting MonopBot")
@@ -212,10 +214,6 @@ class MonopBot(object):
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
     bot = MonopBot(webdriver.Chrome())
-    # bot = MonopBot(webdriver.Remote("http://127.0.0.1:9515", webdriver.DesiredCapabilities.CHROME))
     print bot.basket
-    bot.add_previous_order_to_basket(1)
-    bot.empty_basket()
-    # bot.set_delivery_time(datetime.now().replace(hour=9) + timedelta(days=2))
-    # bot.empty_basket()
-    # missing_elements = [bot.add_previous_order_to_basket(i) for i in range(1, 2)]
+    bot.set_delivery_time(datetime.now().replace(hour=9) + timedelta(days=2))
+    missing_elements = [bot.add_previous_order_to_basket(i) for i in range(1, 2)]

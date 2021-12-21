@@ -1,42 +1,18 @@
 # JarJar
-A bot to do my groceries.
+A bot to do my groceries. Connects to monoprix.fr, schedule a delivery, fills the basket with all items in the last 2 orders, to avoid having to use the awful, very slow UX of the site (e.g. click on each item of last orders 1 by 1 and wait 10s in between). The only thing left to do is having to click on the order button in the end after reviewing the basket.
 
-## Setup
+## Deprecation
+The bot is not useful anymore since efficient online groceries solutions appeared (Monoprix itself is available as a grocery store on Amazon). Furthermore, the code uses selenium and a ghost chrome to emulate a real user -- it does not work any more since Monoprix revamped their website.
+
+# Setup
 After the git clone, in the repo dir :
-`sudo apt-get install xvfb
+```
+sudo apt-get install xvfb
 pip -r requirements.txt
 xvfb-run --server-args='-screen 0, 1024x768x16' chromedriver
 python fais_mes_courses.py
-`
+```
 Line 3 runs a headless chrome as a server, that selenium can operate on port 9515 (default at time of writing).
-
-## Ongoing todo
-1. A script
-a. that says hello world
-b. that reads the monoprix page title
-c. that clicks on MonCompte
-d. that logs in
-e. that displays an info about amount of last order
-f. that waits correclty before logging
-g. that's headless
-h. that logs what's going on
-i. that sets up the delivery time
---> between day n+1 at noon and day n+5 included
---> between 7 and 21 with round hour
---> at an available date
-*j. that actually fills your basket & returns missing items
-
-- that is dockerized
-- that is apized
-- that is chatbotted
-
-## Icebox
-### Refactoring
-- check private methods
-- separate monop api (not testable) with monop bot (testable with api as input)
-
-### Filling the basket
-- add test to check that item is not added if already present in basket
 
 # Development notes
 ## Testablility
